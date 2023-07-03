@@ -74,8 +74,8 @@
 
   ```bash
   git remote add cl_mon https://github.com/NickP007/les09
-  git fetch cl_mon main
-  git merge --allow-unrelated-histories -m "Merge branch 'cl_mon' into main" cl_mon/main
+  git fetch cl_mon cl_mon
+  git merge --allow-unrelated-histories -m "Merge branch 'cl_mon' into main" cl_mon/cl_mon
   ```
 
 3.2 Згенеруємо ключ для шифрування секрету за допомогою **age**:
@@ -106,6 +106,12 @@
 
 #### Перевірка роботи демонстраційного застосунку та взаємодії з моніторінговим стеком
 
-4.1 Робота демонстраційного застосунку та взаємодії з моніторінговим стеком наведена у відео 4.1
+4.1 Для доступу до веб-інтерфейсу дашборду Grafana з локального комп'ютера виконаємо форвардінг 80 порту сервісу 'kube-prometheus-stack-grafana' на локальний порт 8080:
+
+  ```bash
+  kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana --address 0.0.0.0 8080:80 > /dev/null 2>&1 &
+  ```
+
+4.2 Робота демонстраційного застосунку та взаємодії з моніторінговим стеком наведена у відео 4.1
 
 ![Відео 4.1.](docs/img/Monitoring_CC.gif)
