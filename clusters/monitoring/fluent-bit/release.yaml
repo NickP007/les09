@@ -1,0 +1,40 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: fluent-bit
+spec:
+  interval: 5m
+  dependsOn:
+    - name: otel-collector
+  chart:
+    spec:
+      chart: fluent-bit
+      sourceRef:
+        kind: HelmRepository
+        name: fluent-charts
+      interval: 60m
+  install:
+    remediation:
+      retries: 9
+  upgrade:
+    remediation:
+      retries: 9
+  values:
+    dashboards:
+      enabled: true
+    config:
+      outputs: |
+        [OUTPUT]
+            Name opentelemetry
+            Match *
+            Host otel-collector-opentelemetry-collector
+            Port 4318
+            metrics_uri /v1/metrics
+            logs_uri /v1/logs
+            traces_uri /v1/traces
+            Log_response_payload True
+            tls off
+            tls.verify off
+            # add user-defined labels
+            add_label app fluent-bit
+            add_label color blue

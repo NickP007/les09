@@ -1,0 +1,24 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: demo
+# configurations:
+# - kustomizeconfig.yaml
+resources:
+- 01-kbot-ns.yaml
+- 02-kbot-gr.yaml
+- 03-kbot-hr.yaml
+- secret.yaml
+# secretGenerator:
+#   - name: kbot
+#     files:
+#       - token
+# patches:
+#   - target:
+#       kind: Deployment
+#     patch: |-
+#       - op: add
+#         path: /spec/template/spec/containers/0/env
+#         value:
+#           - name: METRICS_HOST
+#             value: otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317

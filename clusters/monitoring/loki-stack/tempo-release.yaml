@@ -1,0 +1,41 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: tempo
+spec:
+  interval: 5m
+  # dependsOn:
+  #   - name: kube-prometheus-stack
+  chart:
+    spec:
+      chart: tempo-distributed
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-charts
+      interval: 60m
+  install:
+    remediation:
+      retries: 9
+  upgrade:
+    remediation:
+      retries: 9
+  values:
+    traces:
+      jaeger:
+        thriftCompact:
+          enabled: true
+        # thriftHttp:
+        #   enabled: true
+        # grpc:
+        #   enabled: true
+      otlp:
+        http:
+          enabled: true
+        grpc:
+          enabled: true
+    ingester:
+      replicas: 2
+    minio:
+      enabled: true
+    # metricsGenerator:
+    #   enabled: true

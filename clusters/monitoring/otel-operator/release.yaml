@@ -1,0 +1,136 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: otel-operator
+spec:
+  interval: 5m
+  dependsOn:
+    - name: kube-prometheus-stack
+    - name: loki-stack
+    - name: tempo
+    - name: cert-manager
+  chart:
+    spec:
+      chart: opentelemetry-operator
+      sourceRef:
+        kind: HelmRepository
+        name: open-telemetry
+      interval: 60m
+  install:
+    remediation:
+      retries: 9
+  upgrade:
+    remediation:
+      retries: 9
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: otel-collector
+spec:
+  interval: 5m
+  dependsOn:
+    - name: otel-operator
+  chart:
+    spec:
+      chart: opentelemetry-collector
+      sourceRef:
+        kind: HelmRepository
+        name: open-telemetry
+      interval: 60m
+  install:
+    remediation:
+      retries: 9
+  upgrade:
+    remediation:
+      retries: 9
+  values:
+    mode: deployment
+    ports:
+      prometheus:
+        enabled: true
+        containerPort: 8889
+        servicePort: 8889
+        protocol: TCP
+    #   metrics:
+    #     enabled: true
+    # podMonitor:
+    #   enabled: true
+    # serviceMonitor:
+    #   enabled: true
+    # prometheusRule:
+    #   enabled: true
+    config:
+      receivers:
+        jaeger:
+          protocols:
+            grpc:
+              endpoint: ${env:MY_POD_IP}:14250
+            thrift_http:
+              endpoint: ${env:MY_POD_IP}:14268
+            thrift_compact:
+              endpoint: ${env:MY_POD_IP}:6831
+        otlp:
+          protocols:
+            grpc:
+              endpoint: "${env:MY_POD_IP}:4317"
+            http:
+              endpoint: "${env:MY_POD_IP}:4318"
+      exporters:
+        logging:
+          verbosity: detailed
+        loki:
+          endpoint: http://loki-stack:3100/loki/api/v1/push
+        prometheus:
+          endpoint: "${env:MY_POD_IP}:8889"
+        jaeger:
+          endpoint: "tempo-distributor:6831"
+        otlp:
+          endpoint: "tempo-distributor:55680"
+          tls:
+            insecure: true
+      processors:
+      #  attributes:
+      #    actions:
+      #      - action: insert
+      #        key: loki.attribute.labels
+      #        value: host_name
+      #      - action: insert
+      #        key: host_name
+      #        from_attribute: host.name
+      #      - action: insert
+      #        key: loki.format
+      #        value: logfmt
+        k8sattributes:
+           passthrough: false
+           auth_type: "serviceAccount"
+           extract:
+             metadata:
+               - k8s.pod.name
+        resource/k8s:
+          attributes:
+            - action: insert
+              key: k8s_namespace_name
+              from_attribute: k8s.namespace.name
+            - action: insert
+              key:  k8s_pod_name
+              from_attribute: k8s.pod.name
+            - action: insert
+              key:  k8s_pod_ip
+              from_attribute: k8s.pod.ip
+            - action: insert
+              key: loki.resource.labels
+              value: k8s_namespace_name,k8s_pod_name,k8s_pod_ip
+      service:
+        pipelines:
+          logs:
+            receivers: [otlp]
+            #processors: [resource,attributes,memory_limiter,batch]
+            processors: [k8sattributes,resource/k8s,memory_limiter,batch]
+            exporters: [loki]
+          traces:
+            receivers: [otlp,jaeger]
+            exporters: [logging,otlp,jaeger]
+          metrics:
+            receivers: [otlp]
+            exporters: [logging,prometheus]

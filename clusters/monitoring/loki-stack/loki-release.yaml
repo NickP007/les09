@@ -1,0 +1,72 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: loki-stack
+spec:
+  interval: 5m
+  # dependsOn:
+  #   - name: kube-prometheus-stack
+  chart:
+    spec:
+      # version: "2.x"
+      chart: loki-stack
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-charts
+      interval: 60m
+  install:
+    remediation:
+      retries: 9
+  upgrade:
+    remediation:
+      retries: 9
+  # https://github.com/grafana/helm-charts/blob/main/charts/loki-stack/values.yaml
+  # https://github.com/grafana/loki/blob/main/production/helm/loki/values.yaml
+  values:
+    grafana:
+      enabled: false
+      sidecar:
+        datasources:
+          enabled: false
+    promtail:
+      enabled: false
+    fluent-bit:
+      enabled: false
+      image:
+        tag: main
+      config:
+        loglevel: info
+        labels: '{job="fluent-bit", stream="stdout"}'
+        # labelMap:
+        #   kubernetes:
+        #     stream: stream
+        # autoKubernetesLabels: true
+        # removeKeys:
+        #  - kubernetes
+        extraOutputs:
+          - Name: opentelemetry
+            Match: "*"
+            Host: otel-collector-opentelemetry-collector
+            Port: 4318
+            # metrics_uri: /v1/metrics
+            # logs_uri: /v1/logs
+            # traces_uri: /v1/traces
+            uri: /v1/metrics
+            log_response_payload: True
+            tls: off
+            tls.verify: off
+            # add user-defined labels
+            add_label: '{job="fluent-bit", app_color="blue"}'
+    loki:
+      enabled: true
+      isDefault: false
+      serviceMonitor:
+        enabled: true
+        additionalLabels:
+          app.kubernetes.io/part-of: kube-prometheus-stack
+      config:
+        chunk_store_config:
+          max_look_back_period: 0s
+        table_manager:
+          retention_deletes_enabled: true
+          retention_period: 12h
